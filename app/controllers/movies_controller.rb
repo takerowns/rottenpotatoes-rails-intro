@@ -1,7 +1,5 @@
 class MoviesController < ApplicationController
 
-  # See Section 4.5: Strong Parameters below for an explanation of this method:
-  # http://guides.rubyonrails.org/action_controller_overview.html
   def movie_params
     params.require(:movie).permit(:title, :rating, :description, :release_date)
   end
@@ -13,31 +11,52 @@ class MoviesController < ApplicationController
   end
 
   def index
-    sort = params[:sort] || session[:sort]
-    case sort
-    when 'title'
-      ordering = {:title => :asc}
-      @title_header = 'hilite'
-    when 'release_date'
-      ordering = {:release_date => :asc}
-      @date_header = 'hilite'
+    @all_ratings = Movie.get_ratings
+
+    if params[:sort_by] == "title"
+     # @movies = Movie.re_order(params[:sort_by])
+     # @sorted_col = "title"
+      session[:sort_by] = "title"
+    elsif params[:sort_by] == "release_date"
+     # @movies = Movie.re_order(params[:sort_by])
+     # @sorted_col = "date"
+      session[:sort_by] = "date"
     end
-    
-    @all_ratings = Movie.all_ratings;
-    @selected_ratings = params[:ratings] || session[:ratings] || {}
-    
-    if @selected_ratings == {}
-      @selected_ratings = Hash[@all_ratings.map {|rating| [rating, rating]}]
+
+    if session[:sort_by] == "title"
+       @movies = Movie.re_order("title")
+       @sorted_col = "title"
+    elsif session[:sort_by] == "date"
+       @movies = Movie.re_order("release_date")
+       @sorted_col = "date"
+    else
+       @movies = Movie.all
     end
-    
-    if params[:sort] != session[:sort] or params[:ratings] != session[:ratings]
-      session[:sort] = sort
-      session[:ratings] = @selected_ratings
-      flash.keep
-      redirect_to :sort => sort, :ratings => @selected_ratings and return
+
+    if !(params[:ratings].nil?)
+      session[:ratings] = params[:ratings]
     end
-    
-    @movies = Movie.where(rating: @selected_ratings.keys).order(ordering)
+
+    @checked_keys = Array.new
+
+    if session[:ratings]
+      @checked_keys = session[:ratings].keys
+      @filtered_movie_list = Array.new
+      @movies.each do |movie|
+        if @checked_keys.include? movie[:rating]
+          @filtered_movie_list.push movie
+        end
+      end
+      @movies = @filtered_movie_list
+    end
+
+    if(params[:sort_by] == nil  && params[:ratings] == nil)
+      if(session[:sort_by] || session[:ratings])
+        redirect_to movies_path(:sort_by => session[:sort_by], :ratings => session[:ratings])
+      end
+    end
+  
+
   end
 
   def new
@@ -68,6 +87,4 @@ class MoviesController < ApplicationController
     redirect_to movies_path
   end
 
-  private :movie_params
-  
 end
